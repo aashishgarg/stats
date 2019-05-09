@@ -1,6 +1,6 @@
 require '../server/base'
 require '../server/commands'
-require '../sanitizer/path'
+require '../sanitizer/processor'
 
 module Stats
   module Server
@@ -9,26 +9,31 @@ module Stats
       attr_accessor :processes, :result, :repositories, :ports, :pids, :release, :command, :sanitizer
 
       def initialize
-        @result = {}
+        @result = {
+            server_release: '',
+            processes: []
+        }
         @pids = []
         @ports = []
         @repositories = []
         @command = Commands.new
-        @sanitizer = Sanitizer::Path.new
+        @sanitizer = Sanitizer::Processor.new
         @processes = @command.active_processes
         @release = @command.release
         build_result(@processes)
       end
 
       def build_result(string)
-        nested_array = string.split("\n").collect {|pair| pair.split(' ')}
+        nested_array = @sanitizer.processes(string)
+        @result[:server_release] = @sanitizer.perform(release)
         nested_array.each do |array|
           pid, port = *array
           @pids << pid
           @ports << port
           @repositories << @command.repository(pid)
 
-          @result[pid] = {
+          @result[:processes] << {
+              pid: pid,
               port: port,
               repository: @sanitizer.repository_path(@command.repository(pid), pid),
               start_time: @command.start_time(pid)
